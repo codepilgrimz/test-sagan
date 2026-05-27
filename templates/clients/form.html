@@ -1,0 +1,64 @@
+{% extends "base.html" %}
+{% block title %}{% if client %}Edit {{ client.display_name }}{% else %}New Client{% endif %} · AW Portal{% endblock %}
+{% block content %}
+<div class="crumbs">
+  <a href="{{ url_for('clients.list_view') }}">Clients</a> ›
+  {% if client %}<a href="{{ url_for('clients.detail_view', client_id=client.id) }}">{{ client.display_name }}</a> › Edit{% else %}New{% endif %}
+</div>
+<div class="page-header">
+  <h1>{% if client %}Edit client{% else %}New client{% endif %}</h1>
+</div>
+
+<form method="post" class="card">
+  <div class="row">
+    <div>
+      <h3>Client 1</h3>
+      <label><span>Name *</span>
+        <input type="text" name="client1_name" value="{{ client.client1_name if client else '' }}" required>
+      </label>
+      <label><span>Date of birth</span>
+        <input type="date" name="client1_dob" value="{{ client.client1_dob if client else '' }}">
+      </label>
+      <label><span>SSN (last 4)</span>
+        <input type="text" name="client1_ssn_last4" maxlength="4" value="{{ client.client1_ssn_last4 if client else '' }}">
+      </label>
+      <label><span>Monthly salary (after tax)</span>
+        <input type="number" step="0.01" name="client1_salary" value="{{ client.client1_salary if client else '' }}">
+      </label>
+    </div>
+    <div>
+      <h3>Client 2 <span class="muted" style="font-weight: normal;">(optional)</span></h3>
+      <label><span>Name</span>
+        <input type="text" name="client2_name" value="{{ client.client2_name if client else '' }}">
+      </label>
+      <label><span>Date of birth</span>
+        <input type="date" name="client2_dob" value="{{ client.client2_dob if client else '' }}">
+      </label>
+      <label><span>SSN (last 4)</span>
+        <input type="text" name="client2_ssn_last4" maxlength="4" value="{{ client.client2_ssn_last4 if client else '' }}">
+      </label>
+      <label><span>Monthly salary (after tax)</span>
+        <input type="number" step="0.01" name="client2_salary" value="{{ client.client2_salary if client else '' }}">
+      </label>
+    </div>
+  </div>
+
+  <h3 style="margin-top: 20px;">SACS settings</h3>
+  <div class="row-3">
+    <label><span>Monthly outflow (expense budget)</span>
+      <input type="number" step="0.01" name="monthly_outflow" value="{{ client.monthly_outflow if client else '' }}">
+    </label>
+    <label><span>Insurance deductibles total</span>
+      <input type="number" step="0.01" name="insurance_deductibles_total" value="{{ client.insurance_deductibles_total if client else '0' }}">
+    </label>
+    <label><span>Account floor</span>
+      <input type="number" step="0.01" name="account_floor" value="{{ client.account_floor if client else '1000' }}">
+    </label>
+  </div>
+
+  <div class="actions" style="margin-top: 20px;">
+    <button type="submit" class="primary">{% if client %}Save changes{% else %}Create client{% endif %}</button>
+    <a class="btn btn-secondary" href="{% if client %}{{ url_for('clients.detail_view', client_id=client.id) }}{% else %}{{ url_for('clients.list_view') }}{% endif %}">Cancel</a>
+  </div>
+</form>
+{% endblock %}

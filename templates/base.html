@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}AW Client Report Portal{% endblock %}</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/app.css') }}">
+</head>
+<body>
+  {% if session.get('authed') %}
+  <nav class="topnav">
+    <a class="brand" href="{{ url_for('clients.list_view') }}">AW Portal</a>
+    <div class="nav-right">
+      <a href="{{ url_for('clients.list_view') }}">Clients</a>
+      <a href="{{ url_for('clients.new_view') }}">+ New Client</a>
+      <form method="post" action="{{ url_for('auth.logout') }}" class="inline">
+        <button type="submit" class="link">Log out</button>
+      </form>
+    </div>
+  </nav>
+  {% endif %}
+
+  <main class="container">
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% for category, msg in messages %}
+        <div class="flash flash-{{ category }}">{{ msg }}</div>
+      {% endfor %}
+    {% endwith %}
+
+    {% block content %}{% endblock %}
+  </main>
+
+  {% block scripts %}{% endblock %}
+</body>
+</html>

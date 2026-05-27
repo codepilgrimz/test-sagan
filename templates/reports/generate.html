@@ -1,0 +1,162 @@
+{% extends "base.html" %}
+{% block title %}Generate Report · {{ client.display_name }}{% endblock %}
+{% block content %}
+<div class="crumbs">
+  <a href="{{ url_for('clients.list_view') }}">Clients</a> ›
+  <a href="{{ url_for('clients.detail_view', client_id=client.id) }}">{{ client.display_name }}</a> ›
+  Generate Report
+</div>
+<div class="page-header">
+  <h1>Generate Report · {{ client.display_name }}</h1>
+</div>
+
+<form method="post" action="{{ url_for('reports.create_view', client_id=client.id) }}" class="report-form" id="report-form">
+
+  <div>
+    <div class="card">
+      <h2>SACS — Monthly Cashflow</h2>
+      <div class="row-3">
+        <label><span>Report date</span>
+          <input type="date" name="report_date" id="report_date" value="{{ today }}" required>
+        </label>
+        <label><span>{{ client.client1_name }} salary</span>
+          <input type="number" step="0.01" name="client1_salary" id="c1_salary" value="{{ client.client1_salary }}" data-live>
+        </label>
+        <label><span>{{ client.client2_name or 'Client 2' }} salary</span>
+          <input type="number" step="0.01" name="client2_salary" id="c2_salary" value="{{ client.client2_salary }}" data-live>
+        </label>
+      </div>
+      <div class="row-3">
+        <label><span>Monthly outflow</span>
+          <input type="number" step="0.01" name="monthly_outflow" id="outflow" value="{{ client.monthly_outflow }}" data-live>
+        </label>
+        <label><span>Insurance deductibles total</span>
+          <input type="number" step="0.01" name="insurance_deductibles_total" id="deductibles" value="{{ client.insurance_deductibles_total }}" data-live>
+        </label>
+        <div></div>
+      </div>
+
+      {# Direct-entry fallbacks if no tagged accounts exist #}
+      {% set has_pr = accounts | selectattr('sacs_role', 'equalto', 'private_reserve') | list | length > 0 %}
+      {% set has_inv = accounts | selectattr('sacs_role', 'equalto', 'investment') | list | length > 0 %}
+      {% if not has_pr or not has_inv %}
+      <div class="muted" style="margin-top: 10px;">
+        For the SACS Long Term Cashflow page (page 2). You can also tag accounts with a SACS role on the client detail page and they'll pre-fill here automatically.
+      </div>
+      <div class="row">
+        {% if not has_pr %}
+        <label><span>Private Reserve / FICA balance</span>
+          <input type="number" step="0.01" name="sacs_private_reserve">
+        </label>
+        <label><span>… as-of date</span>
+          <input type="date" name="sacs_private_reserve_date" value="{{ today }}">
+        </label>
+        {% endif %}
+        {% if not has_inv %}
+        <label><span>Schwab Investment balance</span>
+          <input type="number" step="0.01" name="sacs_investment">
+        </label>
+        <label><span>… as-of date</span>
+          <input type="date" name="sacs_investment_date" value="{{ today }}">
+        </label>
+        {% endif %}
+      </div>
+      {% endif %}
+    </div>
+
+    {% for cat, label in [('retirement','Retirement accounts'), ('non_retirement','Non-Retirement accounts'), ('trust','Trust'), ('liability','Liabilities')] %}
+      {% set group = accounts | selectattr('category', 'equalto', cat) | list %}
+      {% if group %}
+      <div class="card">
+        <h2>TCC — {{ label }}</h2>
+        {% for a in group %}
+        <div class="balance-row" data-cat="{{ a.category }}" data-owner="{{ a.owner or '' }}">
+          <div class="label">
+            <strong>{{ a.account_type }}</strong>
+            {% if a.account_number_last4 %} <span class="muted">····{{ a.account_number_last4 }}</span>{% endif %}
+            {% if a.sacs_role %} <span class="tag">{{ a.sacs_role.replace('_', ' ') }}</span>{% endif %}
+            <span class="meta">
+              {% if a.owner == 'client1' %}{{ client.client1_name }}
+              {% elif a.owner == 'client2' %}{{ client.client2_name or 'Client 2' }}
+              {% elif a.owner == 'joint' %}Joint
+              {% endif %}
+              {% if a.interest_rate %} · {{ a.interest_rate }}%{% endif %}
+            </span>
+          </div>
+          <label><span>Balance</span>
+            <input type="number" step="0.01" name="balance_{{ a.id }}"
+                   value="{{ a.last_balance if a.last_balance is not none else '' }}"
+                   data-balance data-id="{{ a.id }}" required>
+          </label>
+          <label><span>As-of date</span>
+            <input type="date" name="date_{{ a.id }}"
+                   value="{{ a.last_value_date or today }}"
+                   data-date data-id="{{ a.id }}">
+          </label>
+          {% if a.last_balance is not none %}
+          <button type="button" class="btn-last"
+                  data-use-last data-id="{{ a.id }}"
+                  data-balance-val="{{ a.last_balance }}"
+                  data-date-val="{{ a.last_value_date or '' }}">Use last</button>
+          {% else %}
+          <span></span>
+          {% endif %}
+          {% if a.category in ('retirement', 'non_retirement') %}
+            {# Optional cash balance for investment accounts — only show when account_type hints at it #}
+          {% endif %}
+        </div>
+        {% if 'IRA' in a.account_type or '401' in a.account_type or 'Brokerage' in a.account_type or 'Schwab' in a.account_type %}
+        <div class="balance-row" style="border-top: none; padding-top: 0;">
+          <div class="label muted" style="padding-left: 16px;">↳ Cash balance (within {{ a.account_type }})</div>
+          <label><span>Cash</span>
+            <input type="number" step="0.01" name="cash_{{ a.id }}"
+                   value="{{ a.last_cash_balance if a.last_cash_balance is not none else '' }}">
+          </label>
+          <span></span><span></span>
+        </div>
+        {% endif %}
+        {% endfor %}
+      </div>
+      {% endif %}
+    {% endfor %}
+
+    {% if not accounts %}
+    <div class="empty">
+      <p>This client has no accounts yet.</p>
+      <a class="btn btn-primary" href="{{ url_for('clients.detail_view', client_id=client.id) }}">Add accounts first</a>
+    </div>
+    {% endif %}
+
+    <div class="actions" style="margin-top: 16px;">
+      <button type="submit" class="primary" id="submit-btn">Generate Report</button>
+      <a class="btn btn-secondary" href="{{ url_for('clients.detail_view', client_id=client.id) }}">Cancel</a>
+    </div>
+  </div>
+
+  <aside class="sidebar">
+    <h3>SACS</h3>
+    <ul class="totals-list">
+      <li><span>Inflow</span><strong id="t_inflow">—</strong></li>
+      <li><span>Outflow</span><strong id="t_outflow">—</strong></li>
+      <li><span>Excess → Private Reserve</span><strong id="t_excess">—</strong></li>
+      <li class="muted-row"><span>Target (6× + deductibles)</span><strong id="t_target">—</strong></li>
+    </ul>
+
+    <h3 style="margin-top: 18px;">TCC</h3>
+    <ul class="totals-list">
+      <li><span>{{ client.client1_name }} retirement</span><strong id="t_c1_ret">—</strong></li>
+      {% if client.client2_name %}
+      <li><span>{{ client.client2_name }} retirement</span><strong id="t_c2_ret">—</strong></li>
+      {% endif %}
+      <li><span>Non-Retirement</span><strong id="t_non_ret">—</strong></li>
+      <li><span>Trust</span><strong id="t_trust">—</strong></li>
+      <li class="grand"><span>Grand Total</span><strong id="t_grand">—</strong></li>
+      <li class="muted-row"><span>Liabilities (separate)</span><strong id="t_liab">—</strong></li>
+    </ul>
+  </aside>
+</form>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/report_form.js') }}"></script>
+{% endblock %}

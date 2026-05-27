@@ -1,0 +1,184 @@
+{% extends "base.html" %}
+{% block title %}{{ client.display_name }} · AW Portal{% endblock %}
+{% block content %}
+<div class="crumbs">
+  <a href="{{ url_for('clients.list_view') }}">Clients</a> › {{ client.display_name }}
+</div>
+<div class="page-header">
+  <h1>{{ client.display_name }}</h1>
+  <div class="actions">
+    <a class="btn btn-secondary" href="{{ url_for('clients.edit_view', client_id=client.id) }}">Edit profile</a>
+    <a class="btn btn-primary" href="{{ url_for('reports.new_view', client_id=client.id) }}">Generate Report</a>
+  </div>
+</div>
+
+<div class="card">
+  <h2>Profile</h2>
+  <div class="row">
+    <div>
+      <strong>Client 1:</strong> {{ client.client1_name }}<br>
+      <span class="muted">
+        {% if client.client1_dob %}DOB {{ client.client1_dob }} ({{ age_c1 }}y){% endif %}
+        {% if client.client1_ssn_last4 %} · SSN ****{{ client.client1_ssn_last4 }}{% endif %}
+      </span><br>
+      <span class="muted">Salary: {{ client.client1_salary | money }}/mo</span>
+    </div>
+    {% if client.client2_name %}
+    <div>
+      <strong>Client 2:</strong> {{ client.client2_name }}<br>
+      <span class="muted">
+        {% if client.client2_dob %}DOB {{ client.client2_dob }} ({{ age_c2 }}y){% endif %}
+        {% if client.client2_ssn_last4 %} · SSN ****{{ client.client2_ssn_last4 }}{% endif %}
+      </span><br>
+      <span class="muted">Salary: {{ client.client2_salary | money }}/mo</span>
+    </div>
+    {% endif %}
+  </div>
+  <hr style="border: none; border-top: 1px solid var(--border); margin: 16px 0;">
+  <div class="row-3">
+    <div><span class="muted">Inflow</span><br><strong>{{ client.monthly_inflow | money }}/mo</strong></div>
+    <div><span class="muted">Outflow</span><br><strong>{{ client.monthly_outflow | money }}/mo</strong></div>
+    <div><span class="muted">Excess → Private Reserve</span><br><strong>{{ client.excess_to_private_reserve | money }}/mo</strong></div>
+  </div>
+  <div class="muted" style="margin-top: 8px;">
+    Private Reserve target: <strong>{{ client.private_reserve_target | money }}</strong>
+    (6× outflow + {{ client.insurance_deductibles_total | money }} deductibles)
+  </div>
+</div>
+
+<div class="card">
+  <h2>Accounts</h2>
+  {% if accounts %}
+    {% for cat, label in [('retirement','Retirement'), ('non_retirement','Non-Retirement'), ('trust','Trust'), ('liability','Liabilities')] %}
+      {% set group = accounts | selectattr('category', 'equalto', cat) | list %}
+      {% if group %}
+        <div class="acc-section">
+          <h3>{{ label }}</h3>
+          {% for a in group %}
+          <div class="account-card">
+            <div class="info">
+              <div class="type">{{ a.account_type }}
+                {% if a.account_number_last4 %}<span class="muted">····{{ a.account_number_last4 }}</span>{% endif %}
+                {% if a.sacs_role %}<span class="tag">{{ a.sacs_role.replace('_', ' ') }}</span>{% endif %}
+              </div>
+              <div class="meta">
+                {% if a.owner %}{{ a.owner.replace('client1', client.client1_name).replace('client2', client.client2_name or 'Client 2').replace('joint', 'Joint') }}{% endif %}
+                {% if a.interest_rate %} · {{ a.interest_rate }}% interest{% endif %}
+                {% if a.property_address %} · {{ a.property_address }}{% endif %}
+                {% if a.last_balance is not none %} · last: {{ a.last_balance | money }}{% if a.last_value_date %} (a/o {{ a.last_value_date }}){% endif %}{% endif %}
+              </div>
+            </div>
+            <form method="post" action="{{ url_for('clients.delete_account_view', client_id=client.id, account_id=a.id) }}" onsubmit="return confirm('Remove this account?');">
+              <button type="submit" class="btn btn-secondary" style="font-size: 12px;">Remove</button>
+            </form>
+          </div>
+          {% endfor %}
+        </div>
+      {% endif %}
+    {% endfor %}
+  {% else %}
+    <p class="muted">No accounts yet. Add one below.</p>
+  {% endif %}
+
+  <details class="add-account-form" style="margin-top: 16px;">
+    <summary style="cursor: pointer; font-weight: 600;">+ Add account</summary>
+    <form method="post" action="{{ url_for('clients.add_account_view', client_id=client.id) }}" style="margin-top: 12px;">
+      <div class="row-3">
+        <label><span>Category</span>
+          <select name="category" required id="category-select">
+            <option value="retirement">Retirement</option>
+            <option value="non_retirement">Non-Retirement</option>
+            <option value="trust">Trust</option>
+            <option value="liability">Liability</option>
+          </select>
+        </label>
+        <label><span>Owner</span>
+          <select name="owner">
+            <option value="">—</option>
+            <option value="client1">{{ client.client1_name }}</option>
+            {% if client.client2_name %}<option value="client2">{{ client.client2_name }}</option>{% endif %}
+            <option value="joint">Joint</option>
+          </select>
+        </label>
+        <label><span>Account # (last 4)</span>
+          <input type="text" name="account_number_last4" maxlength="6">
+        </label>
+      </div>
+      <div class="row">
+        <label><span>Account type</span>
+          <select name="account_type" id="account-type-select">
+            <option value="">—</option>
+            {% for cat, opts in type_options.items() %}
+              <optgroup label="{{ cat | replace('_', ' ') | title }}">
+                {% for o in opts %}<option value="{{ o }}" data-cat="{{ cat }}">{{ o }}</option>{% endfor %}
+              </optgroup>
+            {% endfor %}
+          </select>
+        </label>
+        <label><span>… or custom type</span>
+          <input type="text" name="account_type_other" placeholder="e.g., Pension - State Plan">
+        </label>
+      </div>
+      <div class="row-3">
+        <label><span>SACS role (optional)</span>
+          <select name="sacs_role">
+            <option value="">— none —</option>
+            <option value="inflow">Inflow</option>
+            <option value="outflow">Outflow</option>
+            <option value="private_reserve">Private Reserve (FICA)</option>
+            <option value="investment">Investment (Schwab)</option>
+          </select>
+        </label>
+        <label><span>Property address (trust only)</span>
+          <input type="text" name="property_address">
+        </label>
+        <label><span>Interest rate % (liability only)</span>
+          <input type="number" step="0.001" name="interest_rate">
+        </label>
+      </div>
+      <div class="row-3">
+        <label><span>Initial balance (optional)</span>
+          <input type="number" step="0.01" name="last_balance">
+        </label>
+        <label><span>Cash balance (investment accounts)</span>
+          <input type="number" step="0.01" name="last_cash_balance">
+        </label>
+        <label><span>As-of date</span>
+          <input type="date" name="last_value_date">
+        </label>
+      </div>
+      <button type="submit" class="primary">Add account</button>
+    </form>
+  </details>
+</div>
+
+<div class="card">
+  <h2>Reports</h2>
+  {% if reports %}
+  <table>
+    <thead>
+      <tr><th>Report date</th><th>Generated</th><th>SACS</th><th>TCC</th></tr>
+    </thead>
+    <tbody>
+      {% for r in reports %}
+      <tr>
+        <td>{{ r.report_date }}</td>
+        <td class="muted">{{ r.generated_at }}</td>
+        <td><a class="btn btn-secondary" href="{{ url_for('reports.sacs_pdf', report_id=r.id) }}">Download SACS</a></td>
+        <td><a class="btn btn-secondary" href="{{ url_for('reports.tcc_pdf', report_id=r.id) }}">Download TCC</a></td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <p class="muted">No reports generated yet.</p>
+  {% endif %}
+</div>
+
+<div class="card" style="border-color: #f5c2c2;">
+  <h2 style="color: var(--danger);">Danger zone</h2>
+  <form method="post" action="{{ url_for('clients.delete_view', client_id=client.id) }}" onsubmit="return confirm('Permanently delete {{ client.display_name }} and all their accounts and reports?');">
+    <button type="submit" class="danger">Delete client</button>
+  </form>
+</div>
+{% endblock %}
