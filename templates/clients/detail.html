@@ -164,8 +164,8 @@
       <tr>
         <td>{{ r.report_date }}</td>
         <td class="muted">{{ r.generated_at }}</td>
-        <td><a class="btn btn-secondary" href="{{ url_for('reports.sacs_pdf', report_id=r.id) }}">Download SACS</a></td>
-        <td><a class="btn btn-secondary" href="{{ url_for('reports.tcc_pdf', report_id=r.id) }}">Download TCC</a></td>
+        <td><a class="btn btn-secondary" href="{{ url_for('reports.sacs_pdf', report_id=r.id) }}" target="_blank" rel="noopener">Download SACS</a></td>
+        <td><a class="btn btn-secondary" href="{{ url_for('reports.tcc_pdf', report_id=r.id) }}" target="_blank" rel="noopener">Download TCC</a></td>
       </tr>
       {% endfor %}
     </tbody>
